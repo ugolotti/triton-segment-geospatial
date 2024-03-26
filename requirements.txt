@@ -11,4 +11,3 @@ xyzservices
 pyproj
 leafmap
 localtileserver
-timm
