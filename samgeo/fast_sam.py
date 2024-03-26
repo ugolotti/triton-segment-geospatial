@@ -4,7 +4,6 @@ https://github.com/opengeos/FastSAM
 
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
 from .common import *
 
 try:
@@ -69,9 +68,7 @@ class SamGeo(FastSAM):
 
         # Use cuda if available
         if device is None:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            if device == "cuda":
-                torch.cuda.empty_cache()
+            device = "cpu"
 
         everything_results = self(image, device=device, **kwargs)
 
@@ -174,8 +171,6 @@ class SamGeo(FastSAM):
         width = image.shape[1]
 
         if better_quality:
-            if isinstance(annotations[0], torch.Tensor):
-                annotations = np.array(annotations.cpu())
             for i, mask in enumerate(annotations):
                 mask = cv2.morphologyEx(
                     mask.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8)
@@ -185,13 +180,6 @@ class SamGeo(FastSAM):
                 )
         if self.device == "cpu":
             annotations = np.array(annotations)
-
-        else:
-            if isinstance(annotations[0], np.ndarray):
-                annotations = torch.from_numpy(annotations)
-
-        if isinstance(annotations, torch.Tensor):
-            annotations = annotations.cpu().numpy()
 
         if dtype is None:
             # Set output image data type based on the number of objects

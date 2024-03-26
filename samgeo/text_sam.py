@@ -7,7 +7,6 @@ import os
 import warnings
 import argparse
 import numpy as np
-import torch
 from PIL import Image
 from segment_anything import sam_model_registry
 from segment_anything import SamPredictor
@@ -51,7 +50,7 @@ CACHE_PATH = os.environ.get(
 
 def load_model_hf(
     repo_id: str, filename: str, ckpt_config_filename: str, device: str = "cpu"
-) -> torch.nn.Module:
+):
     """
     Loads a model from HuggingFace Model Hub.
 
@@ -82,7 +81,7 @@ def load_model_hf(
     return model
 
 
-def transform_image(image: Image) -> torch.Tensor:
+def transform_image(image: Image):
     """
     Transforms an image using standard transformations for image-based models.
 
@@ -117,7 +116,7 @@ class LangSAM:
                 Defaults to 'vit_h'. See https://bit.ly/3VrpxUh for more details.
         """
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = "cpu"
         self.build_groundingdino()
         self.build_sam(model_type, checkpoint)
 
@@ -197,10 +196,10 @@ class LangSAM:
         """
         image_array = np.asarray(image)
         self.sam.set_image(image_array)
-        transformed_boxes = self.sam.transform.apply_boxes_torch(
+        transformed_boxes = self.sam.transform.apply_boxes(
             boxes, image_array.shape[:2]
         )
-        masks, _, _ = self.sam.predict_torch(
+        masks, _, _ = self.sam.predict(
             point_coords=None,
             point_labels=None,
             boxes=transformed_boxes.to(self.sam.device),
@@ -302,10 +301,6 @@ class LangSAM:
 
             for i, (box, mask) in enumerate(zip(boxes, masks)):
                 # Convert tensor to numpy array if necessary and ensure it contains integers
-                if isinstance(mask, torch.Tensor):
-                    mask = (
-                        mask.cpu().numpy().astype(dtype)
-                    )  # If mask is on GPU, use .cpu() before .numpy()
                 mask_overlay += ((mask > 0) * (i + 1)).astype(
                     dtype
                 )  # Assign a unique value for each mask

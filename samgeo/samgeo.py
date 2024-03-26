@@ -4,7 +4,6 @@ The source code is adapted from https://github.com/aliaksandr960/segment-anythin
 
 import os
 import cv2
-import torch
 import numpy as np
 from segment_anything import SamAutomaticMaskGenerator, TritonSamPredictor
 
@@ -541,8 +540,7 @@ class SamGeo:
             if isinstance(coords[0], int):
                 input_boxes = input_boxes[None, :]
             else:
-                input_boxes = torch.tensor(input_boxes, device=self.device)
-                input_boxes = predictor.transform.apply_boxes_torch(
+                input_boxes = predictor.transform.apply_boxes(
                     input_boxes, self.image.shape[:2]
                 )
         elif isinstance(boxes, list) and (point_crs is None):
@@ -564,7 +562,7 @@ class SamGeo:
                 return_logits,
             )
         else:
-            masks, scores, logits = predictor.predict_torch(
+            masks, scores, logits = predictor.predict(
                 point_coords=point_coords,
                 point_labels=point_coords,
                 boxes=input_boxes,
@@ -626,10 +624,6 @@ class SamGeo:
 
             for i, (box, mask) in enumerate(zip(boxes, masks)):
                 # Convert tensor to numpy array if necessary and ensure it contains integers
-                if isinstance(mask, torch.Tensor):
-                    mask = (
-                        mask.cpu().numpy().astype(dtype)
-                    )  # If mask is on GPU, use .cpu() before .numpy()
                 mask_overlay += ((mask > 0) * (i + 1)).astype(
                     dtype
                 )  # Assign a unique value for each mask
@@ -683,11 +677,6 @@ class SamGeo:
         point_labels = [1] * len(fg_points) + [0] * len(bg_points)
         self.point_coords = point_coords
         self.point_labels = point_labels
-
-    def clear_cuda_cache(self):
-        """Clear the CUDA cache."""
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
 
     def image_to_image(self, image, **kwargs):
         return image_to_image(image, self, **kwargs)
