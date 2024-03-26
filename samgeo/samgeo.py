@@ -6,7 +6,7 @@ import os
 import cv2
 import torch
 import numpy as np
-from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
+from segment_anything import SamAutomaticMaskGenerator, TritonSamPredictor
 
 from .common import *
 
@@ -18,11 +18,9 @@ class SamGeo:
 
     def __init__(
         self,
-        model_type="vit_h",
         automatic=True,
-        device=None,
-        checkpoint_dir=None,
         sam_kwargs=None,
+        triton_kwargs=None,
         **kwargs,
     ):
         """Initialize the class.
@@ -57,24 +55,8 @@ class SamGeo:
         """
         hq = False  # Not using HQ-SAM
 
-        if "checkpoint" in kwargs:
-            checkpoint = kwargs["checkpoint"]
-            if not os.path.exists(checkpoint):
-                checkpoint = download_checkpoint(model_type, checkpoint_dir, hq)
-            kwargs.pop("checkpoint")
-        else:
-            checkpoint = download_checkpoint(model_type, checkpoint_dir, hq)
-
-        # Use cuda if available
-        if device is None:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            if device == "cuda":
-                torch.cuda.empty_cache()
-
-        self.checkpoint = checkpoint
-        self.model_type = model_type
-        self.device = device
-        self.sam_kwargs = sam_kwargs  # Optional arguments for fine-tuning the SAM model
+        self.sam_kwargs = sam_kwargs or dict()  # Optional arguments for fine-tuning the SAM model
+        self.triton_kwargs = triton_kwargs or dict()  # Optional arguments for fine-tuning the SAM model
         self.source = None  # Store the input image path
         self.image = None  # Store the input image as a numpy array
         # Store the masks as a list of dictionaries. Each mask is a dictionary
@@ -89,18 +71,10 @@ class SamGeo:
         self.scores = None
         self.logits = None
 
-        # Build the SAM model
-        self.sam = sam_model_registry[self.model_type](checkpoint=self.checkpoint)
-        self.sam.to(device=self.device)
-        # Use optional arguments for fine-tuning the SAM model
-        sam_kwargs = self.sam_kwargs if self.sam_kwargs is not None else {}
-
+        self.predictor = TritonSamPredictor(**self.triton_kwargs)
         if automatic:
             # Segment the entire image using the automatic mask generator
-            self.mask_generator = SamAutomaticMaskGenerator(self.sam, **sam_kwargs)
-        else:
-            # Segment selected objects using input prompts
-            self.predictor = SamPredictor(self.sam, **sam_kwargs)
+            self.mask_generator = SamAutomaticMaskGenerator(self.predictor, **self.sam_kwargs)
 
     def __call__(
         self,
@@ -791,7 +765,7 @@ class SamGeo:
         )
 
 
-class SamGeoPredictor(SamPredictor):
+class SamGeoPredictor(TritonSamPredictor):
     def __init__(
         self,
         sam_model,
