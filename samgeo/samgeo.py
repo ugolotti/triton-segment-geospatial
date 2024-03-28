@@ -608,10 +608,10 @@ class SamGeo:
         image_np = np.array(image_pil)
 
         if index is None:
-            index = 1
+            index = 0
 
         masks = masks[:, index, :, :]
-        masks = masks.squeeze(1)
+        masks = np.squeeze(masks)
 
         if boxes is None or (len(boxes) == 0):  # No "object" instances found
             print("No objects found in the image.")
